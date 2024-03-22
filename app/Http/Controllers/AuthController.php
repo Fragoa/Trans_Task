@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller {
@@ -22,5 +23,10 @@ class AuthController extends Controller {
 	}
 
 	public function user() {
+        $user = Auth::user();
+
+        if ($user) {
+            return response()->json(['user' => $user]);
+        }
 	}
 }
