@@ -66,19 +66,17 @@ class TravelController extends Controller
         function take($travel)
         {
             $user = Auth::user();
-            $driver = Driver::where('id', $user)->first();
-            if (!$driver) {
-                return response()->json(['message' => 'Unauthorized']);
-            }
+            $travel = Travel::find($travel);
 
-            if (!$travel->status->is(TravelStatus::SEARCHING_FOR_DRIVER)) {
+            $driver = Driver::where('id', $user->id)->first();
+
+            if ($travel->status!=TravelStatus::SEARCHING_FOR_DRIVER) {
                 return response()->json(['code' => 'InvalidTravelStatusForThisAction']);
             }
 
             if (Travel::userHasActiveTravel($driver->user)) {
                 return response()->json(['code' => 'ActiveTravel']);
             }
-
             $travel->driver_id = $driver->id;
             $travel->status = TravelStatus::SEARCHING_FOR_DRIVER;
             $travel->save();
