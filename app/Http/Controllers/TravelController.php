@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\TravelStatus;
 use App\Http\Requests\TravelStoreRequest;
+use App\Models\Driver;
 use App\Models\Travel;
 use App\Models\TravelSpot;
+use http\Env\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TravelController extends Controller
@@ -25,7 +27,6 @@ class TravelController extends Controller
 //        }
 
 //        dd($validated['spots']);
-
         // Check if the user has an active travel
         if (Travel::userHasActiveTravel(Auth::user())) {
             return response()->json(['code' => 'ActiveTravel'], 400);
@@ -69,7 +70,27 @@ class TravelController extends Controller
         }
 
         public
-        function take()
+        function take($travel)
         {
+            $user = Auth::user();
+            $driver = Driver::where('id', $user)->first();
+            if (!$driver) {
+                return response()->json(['message' => 'Unauthorized']);
+            }
+
+            if (!$travel->status->is(TravelStatus::SEARCHING_FOR_DRIVER)) {
+                return response()->json(['code' => 'InvalidTravelStatusForThisAction']);
+            }
+
+            if (Travel::userHasActiveTravel($driver->user)) {
+                return response()->json(['code' => 'ActiveTravel']);
+            }
+
+            $travel->driver_id = $driver->id;
+            $travel->status = TravelStatus::SEARCHING_FOR_DRIVER;
+            $travel->save();
+
+            return response()->json(['travel' => $travel]);
+
         }
     }
