@@ -6,6 +6,7 @@ class TravelSpotController extends Controller
 {
 	public function arrived()
 	{
+
 	}
 
 	public function store()

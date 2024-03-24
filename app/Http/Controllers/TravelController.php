@@ -48,9 +48,30 @@ class TravelController extends Controller
         }
 
         public
-        function cancel()
+        function cancel($travelId)
         {
+            $user = Auth::user();
+            $travel = Travel::findOrFail($travelId);
+
+            if ($travel->status == TravelStatus::CANCELLED || $travel->status == TravelStatus::DONE) {
+                return response()->json(['code' => 'CannotCancelFinishedTravel'], 400);
+            }
+
+            if ($travel->passengerIsInCar()) {
+                return response()->json(['code' => 'CannotCancelRunningTravel'], 400);
+            }
+
+            if ($travel->driverHasArrivedToOrigin() && $travel->passenger_id == $user->id) {
+                return response()->json(['code' => 'CannotCancelRunningTravel'], 400);
+            }
+
+            $travel->status = TravelStatus::CANCELLED;
+            $travel->save();
+            return response()->json(['travel' => ['status' => TravelStatus::CANCELLED->value]], 200);
+
         }
+
+
 
         public
         function passengerOnBoard()
