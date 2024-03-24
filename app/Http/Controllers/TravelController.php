@@ -20,14 +20,7 @@ class TravelController extends Controller
     public function store(TravelStoreRequest $request)
     {
         $validated = $request->validated();
-//
-//        if (!$validated) {
-////            return response()->json(['errors' => $validated->toArray()->errors()], 422);
-//            return response()->json(['errors' => ['spots' => $validated->toArray()->errors()]], 422);
-//        }
 
-//        dd($validated['spots']);
-        // Check if the user has an active travel
         if (Travel::userHasActiveTravel(Auth::user())) {
             return response()->json(['code' => 'ActiveTravel'], 400);
         }
