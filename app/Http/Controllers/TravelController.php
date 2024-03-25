@@ -7,14 +7,21 @@ use App\Http\Requests\TravelStoreRequest;
 use App\Models\Driver;
 use App\Models\Travel;
 use App\Models\TravelSpot;
+use Exception;
 use http\Env\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TravelController extends Controller
 {
 
-    public function view()
+    public function view($travelId)
     {
+        try {
+            $travel = Travel::findOrFail($travelId);
+            return response()->json(['travel' => $travel], 200);
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        }
     }
 
     public function store(TravelStoreRequest $request)
