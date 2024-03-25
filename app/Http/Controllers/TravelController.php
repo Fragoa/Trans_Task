@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TravelEventType;
 use App\Enums\TravelStatus;
 use App\Http\Requests\TravelStoreRequest;
 use App\Models\Driver;
 use App\Models\Travel;
+use App\Models\TravelEvent;
 use App\Models\TravelSpot;
 use Exception;
 use http\Env\Request;
@@ -78,20 +80,42 @@ class TravelController extends Controller
 
 
         public
-        function passengerOnBoard()
-        {
-        }
-
-        public
-        function done()
-        {
-        }
-
-        public
-        function take($travel)
+        function passengerOnBoard($travelId)
         {
             $user = Auth::user();
-            $travel = Travel::find($travel);
+            $travel = Travel::findOrFail($travelId);
+
+            if ($travel->passenger_id == $user->id) {
+                return response()->json('', 403);
+            }
+
+            if (!$travel->driverHasArrivedToOrigin()) {
+                return response()->json(['code' => 'CarDoesNotArrivedAtOrigin'], 400);
+            }
+
+            if ($travel->status === TravelStatus::DONE) {
+                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            }
+            $TravelEvent = TravelEvent::where('travel_id', $travel->id)->first();
+            $TravelEvent->type =TravelEventType::PASSENGER_ONBOARD;
+            $TravelEvent->save();
+
+
+            return response()->json(['message' => 'Passenger is on board'], 200);
+        }
+
+
+        public
+        function done($travelId)
+        {
+
+        }
+
+        public
+        function take($travelId)
+        {
+            $user = Auth::user();
+            $travel = Travel::find($travelId);
 
             $driver = Driver::where('id', $user->id)->first();
 
