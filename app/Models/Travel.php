@@ -25,6 +25,7 @@ class Travel extends Model
     protected $fillable = [
         'status',
 
+
     ];
     protected $casts = array(
         'status' => TravelStatus::class,

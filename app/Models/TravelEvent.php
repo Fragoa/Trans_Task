@@ -16,7 +16,9 @@ class TravelEvent extends Model
     protected $casts = array(
         'type' => TravelEventType::class,
     );
-
+    protected $fillable = [
+        'type',
+    ];
     public function travel()
     {
         return $this->belongsTo(Travel::class);

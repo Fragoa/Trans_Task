@@ -11,6 +11,7 @@ use App\Models\TravelEvent;
 use App\Models\TravelSpot;
 use Exception;
 use http\Env\Request;
+use http\Env\Response;
 use Illuminate\Support\Facades\Auth;
 
 class TravelController extends Controller
@@ -85,46 +86,75 @@ class TravelController extends Controller
             $user = Auth::user();
             $travel = Travel::findOrFail($travelId);
 
-            if ($travel->passenger_id == $user->id) {
-                return response()->json('', 403);
+            if ($user->id === $travel->passenger_id) {
+                return response()->json(['', 403]);
             }
 
             if (!$travel->driverHasArrivedToOrigin()) {
                 return response()->json(['code' => 'CarDoesNotArrivedAtOrigin'], 400);
             }
 
-            if ($travel->status === TravelStatus::DONE) {
+            if ($travel->status != TravelStatus::RUNNING) {
                 return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
             }
-            $TravelEvent = TravelEvent::where('travel_id', $travel->id)->first();
-            $TravelEvent->type =TravelEventType::PASSENGER_ONBOARD;
-            $TravelEvent->save();
 
+            if (!$travel->passengerIsInCar()) {
+                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            }
 
-            return response()->json(['message' => 'Passenger is on board'], 200);
+            $travel->events()->create(
+                ['type' => TravelEventType::PASSENGER_ONBOARD->value]
+            );
+
+            $travel->refresh();
+            $events = $travel->events()->get()->toArray();
+
+            return response()->json(['travel' => ['status' => $travel->status->value, 'events' => $events]], 200);
         }
+
 
 
         public
         function done($travelId)
         {
+            $travel = Travel::findOrFail($travelId);
+            $user = Auth::user();
+            if ($user->id == $travel->passenger_id) {
+                return response()->json(['code' => 'Unauthorized'], 403);
+            }
 
+            if ($travel->status ==(TravelStatus::DONE)) {
+                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            }
+
+            if (!$travel->allSpotsPassed()) {
+                return response()->json(['code' => 'AllSpotsDidNotPass'], 400);
+            }
+
+            $travel->status = TravelStatus::DONE;
+            $travel->save();
+
+            $travel->events()->create(['type' => TravelEventType::DONE]);
+            $travel->refresh();
+            $events = $events = $travel->events()->get()->toArray();
+
+            return response()->json(['travel' => [ 'status' => $travel->status->value, 'events' => $events]], 200);
         }
+
 
         public
         function take($travelId)
         {
             $user = Auth::user();
             $travel = Travel::find($travelId);
-
             $driver = Driver::where('id', $user->id)->first();
 
-            if ($travel->status!=TravelStatus::SEARCHING_FOR_DRIVER) {
-                return response()->json(['code' => 'InvalidTravelStatusForThisAction']);
+            if ($travel->status==TravelStatus::CANCELLED) {
+                return response()->json(['code' => 'InvalidTravelStatusForThisAction'],400);
             }
 
             if (Travel::userHasActiveTravel($driver->user)) {
-                return response()->json(['code' => 'ActiveTravel']);
+                return response()->json(['code' => 'ActiveTravel'],400);
             }
             $travel->driver_id = $driver->id;
             $travel->status = TravelStatus::SEARCHING_FOR_DRIVER;
