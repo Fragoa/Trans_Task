@@ -97,23 +97,25 @@ class TravelController extends Controller
             return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
         }
 
-        if (!$travel->passengerIsInCar()) {
+        if ($travel->passengerIsInCar() == 1) {
             return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
         }
+        TravelEvent::where('travel_id', $travel->id)
+            ->update([
+                'type' => TravelEventType::PASSENGER_ONBOARD->value,
+            ]);
+        $events = $travel->events()->get()->toArray();
 
-        if ($user->id == $travel->driver_id) {
-            $travel->events()->create(
-                ['type' => TravelEventType::PASSENGER_ONBOARD->value]
-            );
-            $travel->save();
-
-            $travel->refresh();
-            $events = $travel->events()->get()->toArray();
-
-            return response()->json(['travel' => ['status' => $travel->status->value, 'events' => $events]], 200);
+        $eventTypes = [];
+        foreach ($events as $event) {
+            $eventType = $event['type'];
+            $eventTypes[] = ['type' => $eventType];
         }
 
-    }
+        return response()->json(['travel' => ['events' => $eventTypes]], 200);
+        }
+
+
 
 
 
