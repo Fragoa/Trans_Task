@@ -80,31 +80,32 @@ class TravelController extends Controller
 
 
 
-        public
-        function passengerOnBoard($travelId)
-        {
-            $user = Auth::user();
-            $travel = Travel::findOrFail($travelId);
+    public function passengerOnBoard($travelId)
+    {
+        $user = Auth::user();
+        $travel = Travel::findOrFail($travelId);
 
-            if ($user->id === $travel->passenger_id) {
-                return response()->json(['', 403]);
-            }
+        if ($user->id == $travel->passenger_id) {
+            return response()->json([], 403);
+        }
 
-            if (!$travel->driverHasArrivedToOrigin()) {
-                return response()->json(['code' => 'CarDoesNotArrivedAtOrigin'], 400);
-            }
+        if (!$travel->driverHasArrivedToOrigin()) {
+            return response()->json(['code' => 'CarDoesNotArrivedAtOrigin'], 400);
+        }
 
-            if ($travel->status != TravelStatus::RUNNING) {
-                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
-            }
+        if ($travel->status != TravelStatus::RUNNING) {
+            return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+        }
 
-            if (!$travel->passengerIsInCar()) {
-                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
-            }
+        if (!$travel->passengerIsInCar()) {
+            return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+        }
 
+        if ($user->id == $travel->driver_id) {
             $travel->events()->create(
                 ['type' => TravelEventType::PASSENGER_ONBOARD->value]
             );
+            $travel->save();
 
             $travel->refresh();
             $events = $travel->events()->get()->toArray();
@@ -112,9 +113,11 @@ class TravelController extends Controller
             return response()->json(['travel' => ['status' => $travel->status->value, 'events' => $events]], 200);
         }
 
+    }
 
 
-        public
+
+    public
         function done($travelId)
         {
             $travel = Travel::findOrFail($travelId);

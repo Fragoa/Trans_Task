@@ -205,7 +205,9 @@ class TravelControllerTest extends TestCase
 
         $found = false;
         foreach ($response['travel']['events'] as $e) {
-            if ($e['type'] == TravelEventType::PASSENGER_ONBOARD->value) {
+            if ($e['type'] == TravelEventType
+
+                ::PASSENGER_ONBOARD->value) {
                 $found = true;
                 break;
             }
