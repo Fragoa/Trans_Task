@@ -157,7 +157,6 @@ class TravelController extends Controller
             if ($travel->status==TravelStatus::CANCELLED) {
                 return response()->json(['code' => 'InvalidTravelStatusForThisAction'],400);
             }
-
             if (Travel::userHasActiveTravel($driver->user)) {
                 return response()->json(['code' => 'ActiveTravel'],400);
             }
