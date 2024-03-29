@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\TravelEventType;
 use App\Enums\TravelStatus;
+use App\Exceptions\InvalidTravelStatusForThisActionException;
+use App\Exceptions\SpotAlreadyPassedException;
 use App\Http\Requests\TravelSpotStoreRequest;
 use App\Http\Requests\TravelStoreRequest;
 use App\Models\Driver;
@@ -13,8 +15,8 @@ use Illuminate\Support\Facades\Auth;
 
 class TravelSpotController extends Controller
 {
-	public function arrived($travelId,$spotId)
-	{
+    public function arrived($travelId,$spotId)
+    {
         $user = Auth::user();
         $travel = Travel::findOrFail($travelId);
         $spot = TravelSpot::findOrFail($spotId);
@@ -23,11 +25,11 @@ class TravelSpotController extends Controller
         }
 
         if ($travel->status != TravelStatus::RUNNING) {
-            return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
         }
 
         if ($spot->arrived_at != null) {
-            return response()->json(['code' => 'SpotAlreadyPassed'], 400);
+            throw new SpotAlreadyPassedException('SpotAlreadyPassed');
         }
 
         $spot->arrived_at = now();
@@ -52,11 +54,12 @@ class TravelSpotController extends Controller
         if ($requestData['position'] < 1 || $requestData['position'] > $travel->spots()->get()->count()){
             return response()->json(['errors'=>['position'=>'The position is out of range']],422);
         }
+
         if ($travel->status!=TravelStatus::RUNNING) {
-            return response()->json(['code' => 'InvalidTravelStatusForThisAction'],400);
+            throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
         }
-        if($travel->allSpotsPassed()){
-            return response()->json(['code'=>'SpotAlreadyPassed'],400);
+        if ($travel->allSpotsPassed()) {
+            throw new SpotAlreadyPassedException('SpotAlreadyPassed');
         }
 //        dd($requestData['latitude']);
         $spot = new TravelSpot();
@@ -74,16 +77,13 @@ class TravelSpotController extends Controller
                 'longitude' => $spot->longitude,
             ];
         }
-//        dd($spots);
-//        dd(['travel'=>['spots'=>$spots]]);
         return response()->json(['travel' => ['spots' => $spots]], 200);
     }
 
-	public function destroy()
-	{
 
-	}
-
+    public function destroy()
+    {
 
 
+    }
 }

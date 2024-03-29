@@ -4,6 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Enums\TravelEventType;
 use App\Enums\TravelStatus;
+use App\Exceptions\ActiveTravelException;
+use App\Exceptions\AllSpotsDidNotPassException;
+use App\Exceptions\CannotCancelFinishedTravelException;
+use App\Exceptions\CannotCancelRunningTravelException;
+use App\Exceptions\CarDoesNotArrivedAtOriginException;
+use App\Exceptions\InvalidTravelStatusForThisActionException;
 use App\Http\Requests\TravelStoreRequest;
 use App\Models\Driver;
 use App\Models\Travel;
@@ -29,7 +35,7 @@ class TravelController extends Controller
         $validated = $request->validated();
 
         if (Travel::userHasActiveTravel(Auth::user())) {
-            return response()->json(['code' => 'ActiveTravel'], 400);
+            throw new ActiveTravelException('ActiveTravel');
         }
 
 //        dd($validated);
@@ -61,15 +67,16 @@ class TravelController extends Controller
             $travel = Travel::findOrFail($travelId);
 
             if ($travel->status == TravelStatus::CANCELLED || $travel->status == TravelStatus::DONE) {
-                return response()->json(['code' => 'CannotCancelFinishedTravel'], 400);
+                throw new CannotCancelFinishedTravelException('CannotCancelFinishedTravel');
+
             }
 
             if ($travel->passengerIsInCar()) {
-                return response()->json(['code' => 'CannotCancelRunningTravel'], 400);
+                throw new CannotCancelRunningTravelException('CannotCancelRunningTravel');
             }
 
             if ($travel->driverHasArrivedToOrigin() && $travel->passenger_id == $user->id) {
-                return response()->json(['code' => 'CannotCancelRunningTravel'], 400);
+                throw new CannotCancelRunningTravelException('CannotCancelRunningTravel');
             }
 
             $travel->status = TravelStatus::CANCELLED;
@@ -90,15 +97,15 @@ class TravelController extends Controller
         }
 
         if (!$travel->driverHasArrivedToOrigin()) {
-            return response()->json(['code' => 'CarDoesNotArrivedAtOrigin'], 400);
+            throw new CarDoesNotArrivedAtOriginException('CarDoesNotArrivedAtOrigin');
         }
 
         if ($travel->status != TravelStatus::RUNNING) {
-            return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
         }
 
         if ($travel->passengerIsInCar() == 1) {
-            return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
         }
         TravelEvent::where('travel_id', $travel->id)
             ->update([
@@ -116,9 +123,6 @@ class TravelController extends Controller
         }
 
 
-
-
-
     public
         function done($travelId)
         {
@@ -129,11 +133,11 @@ class TravelController extends Controller
             }
 
             if ($travel->status ==(TravelStatus::DONE)) {
-                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+                throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
             }
 
             if (!$travel->allSpotsPassed()) {
-                return response()->json(['code' => 'AllSpotsDidNotPass'], 400);
+                throw new AllSpotsDidNotPassException('AllSpotsDidNotPass');
             }
 
             $travel->status = TravelStatus::DONE;
@@ -155,10 +159,11 @@ class TravelController extends Controller
             $driver = Driver::where('id', $user->id)->first();
 
             if ($travel->status==TravelStatus::CANCELLED) {
-                return response()->json(['code' => 'InvalidTravelStatusForThisAction'],400);
+                throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
             }
+
             if (Travel::userHasActiveTravel($driver->user)) {
-                return response()->json(['code' => 'ActiveTravel'],400);
+                throw new ActiveTravelException('ActiveTravel');
             }
             $travel->driver_id = $driver->id;
             $travel->status = TravelStatus::SEARCHING_FOR_DRIVER;

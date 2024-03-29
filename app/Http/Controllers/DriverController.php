@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\DriverStatus;
 use App\Enums\TravelStatus;
+use App\Exceptions\AlreadyDriverException;
 use App\Http\Requests\DriverUpdateRequest;
 use App\Models\Driver;
 use App\Models\Travel;
@@ -16,12 +17,11 @@ class DriverController extends Controller
 {
 	public function signup(Request $request)
 	{
-//        dd($request->user());
         $user = $request->user();
         $existingDriver = Driver::where('id', $user->id)->first();
-//        $existingDriver = DB::table('drivers')->where('id', $user->id)->first();
+
         if ($existingDriver) {
-            return response()->json(['code' => 'AlreadyDriver'], 400);
+            throw new AlreadyDriverException('AlreadyDriver');
         }
 
         if (!$existingDriver) {
@@ -41,8 +41,6 @@ class DriverController extends Controller
         $requestData = $request->validated();
         $user = $request->user();
         $existingDriver = Driver::where('id', $user->id)->first();
-//      $existingDriver = DB::table('drivers')->where('id', $user->id)->first();
-//        dd($existingDriver);
         $existingDriver->update([
             'latitude' => $requestData['latitude'],
             'longitude' => $requestData['longitude'],
@@ -54,7 +52,7 @@ class DriverController extends Controller
             ->take(2)
             ->with('spots')
             ->get();
-//        dd($availableTravels);
+
         return response()->json([
             'driver' => $existingDriver,
             'travels' => $availableTravels,
