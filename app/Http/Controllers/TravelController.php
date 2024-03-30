@@ -18,15 +18,18 @@ use App\Models\TravelSpot;
 use Exception;
 use http\Env\Request;
 use http\Env\Response;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 
 class TravelController extends Controller
 {
 
+
     public function view($travelId)
     {
-            $travel = Travel::findOrFail($travelId);
-            return response()->json(['travel' => $travel], 200);
+        $travel = Travel::findOrFail($travelId);
+
+        return response()->json(['travel' => $travel], 200);
 
     }
 
@@ -38,14 +41,12 @@ class TravelController extends Controller
             throw new ActiveTravelException('ActiveTravel');
         }
 
-//        dd($validated);
         $travel = new Travel();
         $travel->passenger_id = Auth::id();
         $travel->status = TravelStatus::SEARCHING_FOR_DRIVER;
         $travel->save();
 
         $spots = $validated['spots'];
-//        dd($spots);
         foreach ($spots as $spotData) {
             $travelSpot = new TravelSpot();
             $travelSpot->travel_id = $travel->id;
@@ -55,7 +56,7 @@ class TravelController extends Controller
             $travelSpot->save();
         }
         $travel->load('spots');
-//        dd($travel->load('spots'));
+
         return response()->json(['travel' => $travel], 201);
 
         }
@@ -65,6 +66,8 @@ class TravelController extends Controller
         {
             $user = Auth::user();
             $travel = Travel::findOrFail($travelId);
+            $this->authorize('cancel', $travel);
+
 
             if ($travel->status == TravelStatus::CANCELLED || $travel->status == TravelStatus::DONE) {
                 throw new CannotCancelFinishedTravelException('CannotCancelFinishedTravel');
@@ -119,6 +122,7 @@ class TravelController extends Controller
             $eventTypes[] = ['type' => $eventType];
         }
 
+
         return response()->json(['travel' => ['events' => $eventTypes]], 200);
         }
 
@@ -128,6 +132,7 @@ class TravelController extends Controller
         {
             $travel = Travel::findOrFail($travelId);
             $user = Auth::user();
+
             if ($user->id == $travel->passenger_id) {
                 return response()->json(['code' => 'Unauthorized'], 403);
             }
@@ -156,7 +161,7 @@ class TravelController extends Controller
         {
             $user = Auth::user();
             $travel = Travel::find($travelId);
-            $driver = Driver::where('id', $user->id)->first();
+            $driver = Driver::byUser($user);
 
             if ($travel->status==TravelStatus::CANCELLED) {
                 throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
@@ -165,6 +170,7 @@ class TravelController extends Controller
             if (Travel::userHasActiveTravel($driver->user)) {
                 throw new ActiveTravelException('ActiveTravel');
             }
+
             $travel->driver_id = $driver->id;
             $travel->status = TravelStatus::SEARCHING_FOR_DRIVER;
             $travel->save();

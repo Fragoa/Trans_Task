@@ -38,9 +38,11 @@ class DriverController extends Controller
 
 	public function update(DriverUpdateRequest $request,Driver $driver)
 	{
+//        $this->authorize('update', $driver);
         $requestData = $request->validated();
         $user = $request->user();
-        $existingDriver = Driver::where('id', $user->id)->first();
+        $existingDriver = Driver::byUser($user);
+
         $existingDriver->update([
             'latitude' => $requestData['latitude'],
             'longitude' => $requestData['longitude'],

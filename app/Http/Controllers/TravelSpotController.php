@@ -7,11 +7,15 @@ use App\Enums\TravelStatus;
 use App\Exceptions\InvalidTravelStatusForThisActionException;
 use App\Exceptions\SpotAlreadyPassedException;
 use App\Http\Requests\TravelSpotStoreRequest;
-use App\Http\Requests\TravelStoreRequest;
+c App\Http\Requests\TravelStoreRequest;
 use App\Models\Driver;
 use App\Models\Travel;
 use App\Models\TravelSpot;
+use http\Client\Request;
+use App\Http\Resources\TravelResource;
 use Illuminate\Support\Facades\Auth;
+use App\Policies\TravelSpotPolicy;
+use mysql_xdevapi\SqlStatementResult;
 
 class TravelSpotController extends Controller
 {
@@ -20,6 +24,7 @@ class TravelSpotController extends Controller
         $user = Auth::user();
         $travel = Travel::findOrFail($travelId);
         $spot = TravelSpot::findOrFail($spotId);
+
         if ($user->id != $travel->driver_id) {
             return response()->json(['code' => 'Unauthorized'], 403);
         }
@@ -38,19 +43,20 @@ class TravelSpotController extends Controller
         $spot->save();
         $spots = $travel->spots()->get()->toArray();
 
-        return response()->json(['travel' => ['status' => $travel->status->value, 'spots' => [['arrived_at' => $spot['arrived_at'], 'position' => $spot['position']]]]], 200);
+        return new TravelResource($travel);
     }
 
     public function store(TravelSpotStoreRequest $request, $travelId)
     {
         $requestData = $request->validated();
-//        dd($requestData);
         $travel = Travel::findOrFail($travelId);
         $user = Auth::user();
+//        $this->authorize('create', $user);
+
+
         if ($user->id == $travel->driver_id){
             return response()->json(['code' => 'Unauthorized'],403);
         }
-//        dd($travel->spots()->get());
         if ($requestData['position'] < 1 || $requestData['position'] > $travel->spots()->get()->count()){
             return response()->json(['errors'=>['position'=>'The position is out of range']],422);
         }
@@ -61,29 +67,49 @@ class TravelSpotController extends Controller
         if ($travel->allSpotsPassed()) {
             throw new SpotAlreadyPassedException('SpotAlreadyPassed');
         }
-//        dd($requestData['latitude']);
+
+        TravelSpot::where('travel_id', $travelId)
+            ->where('position', 1)
+            ->update([
+                'position' => 2,
+            ]);
+
         $spot = new TravelSpot();
         $spot->travel_id = $travel->id;
-        $spot->latitude  = round($requestData['latitude'],5);
-        $spot->longitude = round($requestData['longitude'],5);
+        $spot->latitude  = $requestData['latitude'];
+        $spot->longitude = $requestData['longitude'];
         $spot->position = $requestData['position'];
         $spot->save();
-        $spots = [];
-//        dd($travel->spots()->get());
-        foreach ($travel->spots()->get() as $spot) {
-            $spots[] = [
-                'position' => $spot->position,
-                'latitude' => $spot->latitude,
-                'longitude' => $spot->longitude,
-            ];
-        }
-        return response()->json(['travel' => ['spots' => $spots]], 200);
+
+
+        return new TravelResource($travel);
     }
 
 
-    public function destroy()
-    {
+    public function destroy($travelId,$spotId){
+        $travel = Travel::findOrFail($travelId);
+        $spot = TravelSpot::findOrFail($spotId);
 
+        if ($travel->status != TravelStatus::RUNNING) {
+                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
+            }
 
+        if (Auth::id() == $travel->driver_id) {
+        return response()->json('', 403);
+        }
+        if (!$travel->driverHasArrivedToOrigin()) {
+        return response()->json(['code' => 'ProtectedSpot'], 400);
+        }
+        if ($travel->allSpotsPassed()) {
+        return response()->json(['code' => 'SpotAlreadyPassed'], 400);
+        }
+        if ($travel->spots()->count() == 2 ) {
+            return response()->json(['code' => 'ProtectedSpot'], 400);
+        }
+
+        $spot->delete();
+        $travel->spots()->where('position','>',$spot->position)->decrement('position');
+
+        return new TravelResource($travel);
     }
 }
