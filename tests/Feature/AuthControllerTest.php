@@ -36,7 +36,7 @@ class AuthControllerTest extends TestCase
             'password' => '12345'
         ))
             ->assertStatus(422)
-            ->assertJson(fn (AssertableJson $json) => 
+            ->assertJson(fn (AssertableJson $json) =>
                 $json->hasAll(["errors.cellphone", "errors.name","errors.lastname", "errors.password"])->etc()
             );
     }
@@ -54,4 +54,5 @@ class AuthControllerTest extends TestCase
                 $json->missing('user.password');
             });
     }
+
 }

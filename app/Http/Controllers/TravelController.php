@@ -28,14 +28,16 @@ class TravelController extends Controller
     public function view($travelId)
     {
         $travel = Travel::findOrFail($travelId);
+        $this->authorize('view', $travel);
 
         return response()->json(['travel' => $travel], 200);
-
     }
 
     public function store(TravelStoreRequest $request)
     {
         $validated = $request->validated();
+        $this->authorize('create', Travel::class);
+
 
         if (Travel::userHasActiveTravel(Auth::user())) {
             throw new ActiveTravelException('ActiveTravel');
@@ -60,13 +62,12 @@ class TravelController extends Controller
         return response()->json(['travel' => $travel], 201);
 
         }
-
-        public
-        function cancel($travelId)
+    public function cancel($travelId)
         {
             $user = Auth::user();
             $travel = Travel::findOrFail($travelId);
             $this->authorize('cancel', $travel);
+
 
 
             if ($travel->status == TravelStatus::CANCELLED || $travel->status == TravelStatus::DONE) {
@@ -89,15 +90,12 @@ class TravelController extends Controller
         }
 
 
-
     public function passengerOnBoard($travelId)
     {
         $user = Auth::user();
         $travel = Travel::findOrFail($travelId);
+        $this->authorize('markAsPassengerOnBoard', $travel);
 
-        if ($user->id == $travel->passenger_id) {
-            return response()->json([], 403);
-        }
 
         if (!$travel->driverHasArrivedToOrigin()) {
             throw new CarDoesNotArrivedAtOriginException('CarDoesNotArrivedAtOrigin');
@@ -132,10 +130,8 @@ class TravelController extends Controller
         {
             $travel = Travel::findOrFail($travelId);
             $user = Auth::user();
+            $this->authorize('markAsDone', $travel);
 
-            if ($user->id == $travel->passenger_id) {
-                return response()->json(['code' => 'Unauthorized'], 403);
-            }
 
             if ($travel->status ==(TravelStatus::DONE)) {
                 throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
@@ -162,6 +158,8 @@ class TravelController extends Controller
             $user = Auth::user();
             $travel = Travel::find($travelId);
             $driver = Driver::byUser($user);
+            $this->authorize('take', $travel);
+
 
             if ($travel->status==TravelStatus::CANCELLED) {
                 throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');

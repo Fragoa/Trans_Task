@@ -5,9 +5,10 @@ namespace App\Http\Controllers;
 use App\Enums\TravelEventType;
 use App\Enums\TravelStatus;
 use App\Exceptions\InvalidTravelStatusForThisActionException;
+use App\Exceptions\ProtectedSpotException;
 use App\Exceptions\SpotAlreadyPassedException;
 use App\Http\Requests\TravelSpotStoreRequest;
-c App\Http\Requests\TravelStoreRequest;
+use App\Http\Requests\TravelStoreRequest;
 use App\Models\Driver;
 use App\Models\Travel;
 use App\Models\TravelSpot;
@@ -24,10 +25,8 @@ class TravelSpotController extends Controller
         $user = Auth::user();
         $travel = Travel::findOrFail($travelId);
         $spot = TravelSpot::findOrFail($spotId);
+        $this->authorize('markAsArrived', $spot);
 
-        if ($user->id != $travel->driver_id) {
-            return response()->json(['code' => 'Unauthorized'], 403);
-        }
 
         if ($travel->status != TravelStatus::RUNNING) {
             throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
@@ -51,12 +50,9 @@ class TravelSpotController extends Controller
         $requestData = $request->validated();
         $travel = Travel::findOrFail($travelId);
         $user = Auth::user();
-//        $this->authorize('create', $user);
+        $this->authorize('create', [TravelSpot::class, $travel]);
 
 
-        if ($user->id == $travel->driver_id){
-            return response()->json(['code' => 'Unauthorized'],403);
-        }
         if ($requestData['position'] < 1 || $requestData['position'] > $travel->spots()->get()->count()){
             return response()->json(['errors'=>['position'=>'The position is out of range']],422);
         }
@@ -89,22 +85,22 @@ class TravelSpotController extends Controller
     public function destroy($travelId,$spotId){
         $travel = Travel::findOrFail($travelId);
         $spot = TravelSpot::findOrFail($spotId);
+        $this->authorize('destroy', $spot);
+
 
         if ($travel->status != TravelStatus::RUNNING) {
-                return response()->json(['code' => 'InvalidTravelStatusForThisAction'], 400);
-            }
-
-        if (Auth::id() == $travel->driver_id) {
-        return response()->json('', 403);
+            throw new InvalidTravelStatusForThisActionException('InvalidTravelStatusForThisAction');
         }
+
+
         if (!$travel->driverHasArrivedToOrigin()) {
-        return response()->json(['code' => 'ProtectedSpot'], 400);
+             return response()->json(['code' => 'ProtectedSpot'], 400);
         }
         if ($travel->allSpotsPassed()) {
-        return response()->json(['code' => 'SpotAlreadyPassed'], 400);
+            throw new SpotAlreadyPassedException('SpotAlreadyPassed');
         }
         if ($travel->spots()->count() == 2 ) {
-            return response()->json(['code' => 'ProtectedSpot'], 400);
+            throw new ProtectedSpotException('ProtectedSpot');
         }
 
         $spot->delete();

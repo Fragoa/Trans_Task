@@ -28,4 +28,5 @@ Route::middleware("auth:sanctum")->group(function(Router $router) {
     $router->get("/driver", [DriverController::class, "view"]);
     $router->post("/driver", [DriverController::class, "signup"]);
     $router->put("/driver", [DriverController::class, "update"]);
+
 });
